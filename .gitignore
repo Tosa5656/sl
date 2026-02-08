@@ -1,0 +1,20 @@
+# Build artifacts
+bin/
+temp/
+obj/
+
+# Bison/Flex generated files
+*.tab.c
+*.tab.h
+lex.yy.c
+
+# C++ object files
+*.o
+*.obj
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

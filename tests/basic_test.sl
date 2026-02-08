@@ -1,0 +1,4 @@
+function main() -> int {
+    int x = 42;
+    return x;
+}
