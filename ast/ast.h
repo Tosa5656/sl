@@ -29,6 +29,10 @@ class ASTNode;
 class ProgramNode;
 class DirectiveNode;
 class FunctionNode;
+class ClassNode;
+class MethodNode;
+class ConstructorNode;
+class TemplateNode;
 class StatementNode;
 class ExpressionNode;
 class VarDeclNode;
@@ -62,6 +66,8 @@ class ProgramNode : public ASTNode {
 public:
     std::vector<std::unique_ptr<ASTNode>> directives;
     std::vector<std::unique_ptr<FunctionNode>> functions;
+    std::vector<std::unique_ptr<TemplateNode>> templates;
+    std::vector<std::unique_ptr<ClassNode>> classes;
     std::vector<std::unique_ptr<VarDeclNode>> globals;
 
     void accept(ASTVisitor* visitor) override;
@@ -79,6 +85,43 @@ class FunctionNode : public ASTNode {
 public:
     std::string name;
     Type returnType;
+    std::vector<std::pair<std::string, Type>> parameters;
+    std::unique_ptr<BlockNode> body;
+
+    void accept(ASTVisitor* visitor) override;
+};
+
+class TemplateNode : public ASTNode {
+public:
+    std::string templateParam;
+    std::unique_ptr<FunctionNode> function;
+
+    void accept(ASTVisitor* visitor) override;
+};
+
+class ClassNode : public ASTNode {
+public:
+    std::string name;
+    std::vector<std::unique_ptr<MethodNode>> methods;
+    std::unique_ptr<ConstructorNode> constructor;
+
+    void accept(ASTVisitor* visitor) override;
+};
+
+class MethodNode : public ASTNode {
+public:
+    std::string name;
+    Type returnType;
+    std::vector<std::pair<std::string, Type>> parameters;
+    std::unique_ptr<BlockNode> body;
+    bool isPrivate;
+
+    void accept(ASTVisitor* visitor) override;
+};
+
+class ConstructorNode : public ASTNode {
+public:
+    std::string className;
     std::vector<std::pair<std::string, Type>> parameters;
     std::unique_ptr<BlockNode> body;
 
@@ -290,6 +333,10 @@ public:
     virtual void visit(ProgramNode* node) = 0;
     virtual void visit(DirectiveNode* node) = 0;
     virtual void visit(FunctionNode* node) = 0;
+    virtual void visit(TemplateNode* node) = 0;
+    virtual void visit(ClassNode* node) = 0;
+    virtual void visit(MethodNode* node) = 0;
+    virtual void visit(ConstructorNode* node) = 0;
     virtual void visit(BlockNode* node) = 0;
     virtual void visit(VarDeclNode* node) = 0;
     virtual void visit(VarAssignNode* node) = 0;

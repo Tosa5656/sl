@@ -13,6 +13,22 @@ void FunctionNode::accept(ASTVisitor* visitor) {
     visitor->visit(this);
 }
 
+void TemplateNode::accept(ASTVisitor* visitor) {
+    visitor->visit(this);
+}
+
+void ClassNode::accept(ASTVisitor* visitor) {
+    visitor->visit(this);
+}
+
+void MethodNode::accept(ASTVisitor* visitor) {
+    visitor->visit(this);
+}
+
+void ConstructorNode::accept(ASTVisitor* visitor) {
+    visitor->visit(this);
+}
+
 void BlockNode::accept(ASTVisitor* visitor) {
     visitor->visit(this);
 }

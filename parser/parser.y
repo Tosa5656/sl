@@ -7,6 +7,7 @@
     #include <fstream>
     #include <unistd.h>
     #include <cstdlib>
+    #include <cstring>
     #include "../ast/ast.h"
     #include "../semantic/semantic.h"
     #include "../codegen/codegen.h"
@@ -42,10 +43,16 @@
     void* param_list;
     void* expr_list;
     void* case_list;
+    void* class_def;
+    void* template_def;
+    void* method_def;
+    void* constructor_def;
+    void* class_body;
 }
 
 %token <str> DIRECTIVE
 %token RETURN FUNCTION IF ELSE WHILE DO FOR
+%token CLASS PRIVATE PUBLIC TEMPLATE
 %token BREAK CONTINUE SWITCH CASE DEFAULT
 %token CONST
 %token <int_val> INTEGER
@@ -66,6 +73,13 @@
 
 %type <node> top_level_item directive program
 %type <func> function_def
+%type <template_def> template_def
+%type <class_def> class_def
+%type <method_def> method_def
+%type <constructor_def> constructor_def
+%type <str> access_specifier
+%type <class_body> class_body
+%type <node> class_members class_member
 %type <block> function_body block
 %type <stmt> statement return_stmt var_decl var_assign inc_dec_stmt if_stmt while_stmt do_while_stmt for_stmt switch_stmt break_stmt continue_stmt
 %type <block> default_case
@@ -109,6 +123,10 @@ program_items:
                 programRoot->directives.push_back(std::unique_ptr<ASTNode>(dir));
             } else if (auto* func = dynamic_cast<FunctionNode*>(node)) {
                 programRoot->functions.push_back(std::unique_ptr<FunctionNode>(func));
+            } else if (auto* templ = dynamic_cast<TemplateNode*>(node)) {
+                programRoot->templates.push_back(std::unique_ptr<TemplateNode>(templ));
+            } else if (auto* cls = dynamic_cast<ClassNode*>(node)) {
+                programRoot->classes.push_back(std::unique_ptr<ClassNode>(cls));
             } else if (auto* var = dynamic_cast<VarDeclNode*>(node)) {
                 programRoot->globals.push_back(std::unique_ptr<VarDeclNode>(var));
             } else {
@@ -124,6 +142,10 @@ program_items:
                 programRoot->directives.push_back(std::unique_ptr<ASTNode>(dir));
             } else if (auto* func = dynamic_cast<FunctionNode*>(node)) {
                 programRoot->functions.push_back(std::unique_ptr<FunctionNode>(func));
+            } else if (auto* templ = dynamic_cast<TemplateNode*>(node)) {
+                programRoot->templates.push_back(std::unique_ptr<TemplateNode>(templ));
+            } else if (auto* cls = dynamic_cast<ClassNode*>(node)) {
+                programRoot->classes.push_back(std::unique_ptr<ClassNode>(cls));
             } else if (auto* var = dynamic_cast<VarDeclNode*>(node)) {
                 programRoot->globals.push_back(std::unique_ptr<VarDeclNode>(var));
             } else {
@@ -137,6 +159,8 @@ program_items:
 top_level_item:
     directive { $$ = $1; }
     | function_def { $$ = $1; }
+    | template_def { $$ = $1; }
+    | class_def { $$ = $1; }
     | var_decl { $$ = $1; }
     ;
 
@@ -321,6 +345,218 @@ return_stmt:
         ret->value = nullptr;
         $$ = ret;
     }
+    ;
+
+template_def:
+    TEMPLATE LT VAR GT function_def
+    {
+        auto* templ = new TemplateNode();
+        templ->line = yylineno;
+        templ->templateParam = $3;
+        templ->function = std::unique_ptr<FunctionNode>(static_cast<FunctionNode*>($5));
+        $$ = templ;
+        free($3);
+    }
+    ;
+
+class_def:
+    CLASS VAR LBRACE class_body RBRACE
+    {
+        auto* cls = new ClassNode();
+        cls->line = yylineno;
+        cls->name = $2;
+        if ($4) {
+            auto* body = static_cast<std::pair<ConstructorNode*, std::vector<MethodNode*>*>*>($4);
+            if (body->first) {
+                cls->constructor = std::unique_ptr<ConstructorNode>(body->first);
+            }
+            if (body->second) {
+                for (auto* method : *body->second) {
+                    cls->methods.push_back(std::unique_ptr<MethodNode>(method));
+                }
+                delete body->second;
+            }
+            delete body;
+        }
+        $$ = cls;
+        free($2);
+    }
+    ;
+
+class_body:
+    class_members
+    {
+        $$ = $1;
+    }
+    | /* empty */
+    {
+        $$ = nullptr;
+    }
+    ;
+
+class_members:
+    class_members class_member
+    {
+        if ($1 && $2) {
+            auto* result = static_cast<std::pair<ConstructorNode*, std::vector<MethodNode*>*>*>($1);
+            auto* member = static_cast<std::pair<ConstructorNode*, std::vector<MethodNode*>*>*>($2);
+
+            if (member->first) {
+                result->first = member->first;
+            }
+            if (member->second) {
+                for (auto* method : *member->second) {
+                    result->second->push_back(method);
+                }
+                delete member->second;
+            }
+            delete member;
+            $$ = result;
+        } else {
+            $$ = $1 ? $1 : $2;
+        }
+    }
+    | class_member
+    {
+        $$ = $1;
+    }
+    ;
+
+class_member:
+    constructor_def
+    {
+        auto* result = new std::pair<ConstructorNode*, std::vector<MethodNode*>*>();
+        result->first = static_cast<ConstructorNode*>($1);
+        result->second = nullptr;
+        $$ = result;
+    }
+    | method_def
+    {
+        auto* result = new std::pair<ConstructorNode*, std::vector<MethodNode*>*>();
+        result->first = nullptr;
+        result->second = new std::vector<MethodNode*>();
+        result->second->push_back(static_cast<MethodNode*>($1));
+        $$ = result;
+    }
+    ;
+
+constructor_def:
+    VAR LPAREN param_list RPAREN LBRACE function_body RBRACE
+    {
+        auto* ctor = new ConstructorNode();
+        ctor->line = yylineno;
+        ctor->className = $1;
+        if ($3) {
+            auto* list = static_cast<std::vector<std::pair<std::string, Type>>*>($3);
+            ctor->parameters = *list;
+            delete list;
+        }
+        if ($6) {
+            ctor->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($6));
+        } else {
+            ctor->body = std::make_unique<BlockNode>();
+        }
+        $$ = ctor;
+        free($1);
+    }
+    | VAR LPAREN RPAREN LBRACE function_body RBRACE
+    {
+        auto* ctor = new ConstructorNode();
+        ctor->line = yylineno;
+        ctor->className = $1;
+        if ($5) {
+            ctor->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($5));
+        } else {
+            ctor->body = std::make_unique<BlockNode>();
+        }
+        $$ = ctor;
+        free($1);
+    }
+    ;
+
+method_def:
+    access_specifier type_spec VAR LPAREN param_list RPAREN LBRACE function_body RBRACE
+    {
+        auto* method = new MethodNode();
+        method->line = yylineno;
+        method->name = $3;
+        method->returnType = parseType($2);
+        method->isPrivate = ($1 && strcmp($1, "private") == 0);
+        if ($5) {
+            auto* list = static_cast<std::vector<std::pair<std::string, Type>>*>($5);
+            method->parameters = *list;
+            delete list;
+        }
+        if ($8) {
+            method->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($8));
+        } else {
+            method->body = std::make_unique<BlockNode>();
+        }
+        $$ = method;
+        if ($1) free($1);
+        free($2);
+        free($3);
+    }
+    | access_specifier type_spec VAR LPAREN RPAREN LBRACE function_body RBRACE
+    {
+        auto* method = new MethodNode();
+        method->line = yylineno;
+        method->name = $3;
+        method->returnType = parseType($2);
+        method->isPrivate = ($1 && strcmp($1, "private") == 0);
+        if ($7) {
+            method->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($7));
+        } else {
+            method->body = std::make_unique<BlockNode>();
+        }
+        $$ = method;
+        if ($1) free($1);
+        free($2);
+        free($3);
+    }
+    | access_specifier VAR LPAREN param_list RPAREN LBRACE function_body RBRACE
+    {
+        auto* method = new MethodNode();
+        method->line = yylineno;
+        method->name = $2;
+        method->returnType = Type::VOID;
+        method->isPrivate = ($1 && strcmp($1, "private") == 0);
+        if ($4) {
+            auto* list = static_cast<std::vector<std::pair<std::string, Type>>*>($4);
+            method->parameters = *list;
+            delete list;
+        }
+        if ($7) {
+            method->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($7));
+        } else {
+            method->body = std::make_unique<BlockNode>();
+        }
+        $$ = method;
+        if ($1) free($1);
+        free($2);
+    }
+    | access_specifier VAR LPAREN RPAREN LBRACE function_body RBRACE
+    {
+        auto* method = new MethodNode();
+        method->line = yylineno;
+        method->name = $2;
+        method->returnType = Type::VOID;
+        method->isPrivate = ($1 && strcmp($1, "private") == 0);
+        if ($6) {
+            method->body = std::unique_ptr<BlockNode>(static_cast<BlockNode*>($6));
+        } else {
+            method->body = std::make_unique<BlockNode>();
+        }
+        $$ = method;
+        if ($1) free($1);
+        free($2);
+    }
+    ;
+
+access_specifier:
+    PRIVATE { $$ = strdup("private"); }
+    | PUBLIC { $$ = strdup("public"); }
+    | /* empty */ { $$ = nullptr; }
     ;
 
 var_decl:

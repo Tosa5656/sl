@@ -134,6 +134,14 @@ void SemanticAnalyzer::visit(ProgramNode* node) {
         }
     }
 
+    for (auto& templ : node->templates) {
+        templ->accept(this);
+    }
+
+    for (auto& cls : node->classes) {
+        cls->accept(this);
+    }
+
     for (auto& dir : node->directives) {
         dir->accept(this);
     }
@@ -160,7 +168,55 @@ void SemanticAnalyzer::visit(FunctionNode* node) {
     if (node->body) {
         node->body->accept(this);
     }
-    
+
+    exitScope();
+}
+
+void SemanticAnalyzer::visit(TemplateNode* node) {
+    if (node->function) {
+        node->function->accept(this);
+    }
+}
+
+void SemanticAnalyzer::visit(ClassNode* node) {
+    enterScope();
+
+    if (node->constructor) {
+        node->constructor->accept(this);
+    }
+
+    for (auto& method : node->methods) {
+        method->accept(this);
+    }
+
+    exitScope();
+}
+
+void SemanticAnalyzer::visit(MethodNode* node) {
+    enterScope();
+
+    for (auto& param : node->parameters) {
+        declareSymbol(param.first, param.second);
+    }
+
+    if (node->body) {
+        node->body->accept(this);
+    }
+
+    exitScope();
+}
+
+void SemanticAnalyzer::visit(ConstructorNode* node) {
+    enterScope();
+
+    for (auto& param : node->parameters) {
+        declareSymbol(param.first, param.second);
+    }
+
+    if (node->body) {
+        node->body->accept(this);
+    }
+
     exitScope();
 }
 

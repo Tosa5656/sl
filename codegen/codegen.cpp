@@ -51,8 +51,32 @@ void CodeGenerator::generate(ProgramNode* program) {
 }
 
 void CodeGenerator::visit(ProgramNode* node) {
+    // First pass: generate all struct definitions
+    for (auto& cls : node->classes) {
+        printLine("typedef struct " + cls->name + " {");
+        printLine("} " + cls->name + ";");
+        print("");
+    }
+
     for (auto& global : node->globals) {
         global->accept(this);
+    }
+
+    for (auto& templ : node->templates) {
+        templ->accept(this);
+    }
+
+    // Second pass: generate all functions and methods
+    for (auto& cls : node->classes) {
+        // Generate constructor
+        if (cls->constructor) {
+            cls->constructor->accept(this);
+        }
+
+        // Generate methods
+        for (auto& method : cls->methods) {
+            method->accept(this);
+        }
     }
 
     for (auto& func : node->functions) {
@@ -66,25 +90,84 @@ void CodeGenerator::visit(DirectiveNode* node) {
 void CodeGenerator::visit(FunctionNode* node) {
     std::stringstream ss;
     ss << typeToCType(node->returnType) << " " << node->name << "(";
-    
+
     for (size_t i = 0; i < node->parameters.size(); ++i) {
         if (i > 0) ss << ", ";
         ss << typeToCType(node->parameters[i].second) << " " << node->parameters[i].first;
     }
-    
+
     ss << ") {";
     printLine(ss.str());
-    
+
     currentFunctionReturnType = typeToString(node->returnType);
     indentLevel++;
-    
+
     if (node->body) {
         node->body->accept(this);
     }
-    
+
     indentLevel--;
     printLine("}");
     print("");
+}
+
+void CodeGenerator::visit(TemplateNode* node) {
+    if (node->function) {
+        node->function->accept(this);
+    }
+}
+
+void CodeGenerator::visit(ClassNode* node) {
+    printLine("typedef struct " + node->name + " {");
+    printLine("} " + node->name + ";");
+    print("");
+}
+
+void CodeGenerator::visit(MethodNode* node) {
+    std::stringstream ss;
+    ss << typeToCType(node->returnType) << " " << node->name << "(";
+
+    for (size_t i = 0; i < node->parameters.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << typeToCType(node->parameters[i].second) << " " << node->parameters[i].first;
+    }
+
+    ss << ") {";
+    printLine(ss.str());
+
+    currentFunctionReturnType = typeToString(node->returnType);
+    indentLevel++;
+
+    if (node->body) {
+        node->body->accept(this);
+    }
+
+    indentLevel--;
+    printLine("}");
+}
+
+void CodeGenerator::visit(ConstructorNode* node) {
+    std::stringstream ss;
+    ss << node->className << "* " << node->className << "_new(";
+
+    for (size_t i = 0; i < node->parameters.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << typeToCType(node->parameters[i].second) << " " << node->parameters[i].first;
+    }
+
+    ss << ") {";
+    printLine(ss.str());
+
+    indentLevel++;
+    printLine(node->className + "* obj = (" + node->className + "*)malloc(sizeof(" + node->className + "));");
+
+    if (node->body) {
+        node->body->accept(this);
+    }
+
+    printLine("return obj;");
+    indentLevel--;
+    printLine("}");
 }
 
 void CodeGenerator::visit(BlockNode* node) {

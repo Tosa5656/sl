@@ -22,6 +22,10 @@
                     }
 return              { return RETURN; }
 function            { return FUNCTION; }
+class               { return CLASS; }
+private             { return PRIVATE; }
+public              { return PUBLIC; }
+template            { return TEMPLATE; }
 if                  { return IF; }
 else                { return ELSE; }
 while               { return WHILE; }

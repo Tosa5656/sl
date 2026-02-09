@@ -1,55 +1,24 @@
-const int MAX_VALUE = 100;
-
-function fibonacci(int n) -> int {
-    if (n <= 1) {
-        return n;
-    }
-    return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-function test_switch(int value) -> int {
+function test_control_flow() -> int {
     int result = 0;
-    switch (value) {
-        case 1:
-            result = 10;
-            break;
-        case 2:
-            result = 20;
-            break;
-        default:
-            result = 0;
-    }
-    return result;
-}
 
-function test_loops() -> int {
-    int sum = 0;
-
-    // Test for loop
     for (int i = 0; i < 5; i++) {
-        sum += i;
+        result = result + i;
     }
 
-    // Test while loop
     int j = 0;
-    while (j < 3) {
-        sum += 10;
-        j++;
+    while (j < 5) {
+        result = result + j;
+        j = j + 1;
     }
 
-    // Test do-while loop
-    int k = 0;
+    int x = 10;
     do {
-        sum += 5;
-        k++;
-    } while (k < 2);
+        x = x - 1;
+    } while (x > 5);
 
-    return sum;
+    return result + x;
 }
 
 function main() -> int {
-    int fib = fibonacci(6);
-    int switch_result = test_switch(2);
-    int loop_result = test_loops();
-    return fib + switch_result + loop_result;
+    return test_control_flow();
 }

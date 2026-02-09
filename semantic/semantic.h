@@ -39,6 +39,10 @@ public:
     void visit(ProgramNode* node) override;
     void visit(DirectiveNode* node) override;
     void visit(FunctionNode* node) override;
+    void visit(TemplateNode* node) override;
+    void visit(ClassNode* node) override;
+    void visit(MethodNode* node) override;
+    void visit(ConstructorNode* node) override;
     void visit(BlockNode* node) override;
     void visit(VarDeclNode* node) override;
     void visit(VarAssignNode* node) override;
